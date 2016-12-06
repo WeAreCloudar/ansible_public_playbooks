@@ -1,0 +1,6 @@
+---
+- name: restart flexserv
+  with_items:
+    - ndtask
+    - mgsusageag
+  service: name={{ item }} state=restarted enabled=yes

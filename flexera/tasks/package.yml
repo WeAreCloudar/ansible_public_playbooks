@@ -1,0 +1,54 @@
+---
+- name: Check if managesoft is installed
+  command: rpm -q managesoft
+  ignore_errors: true
+  failed_when: rpm_check.rc > 1
+  changed_when: false
+  register: rpm_check
+  always_run: true
+  when: ansible_os_family == 'RedHat'
+  tags: flexera
+
+- name: Copy rpm
+  copy: src=managesoft-9.0.0-1.x86_64.rpm dest=/home/ansible/managesoft-9.0.0-1.x86_64.rpm
+  when: rpm_check.stdout.find('is not installed') != -1 and ansible_os_family == 'RedHat'
+  tags: flexera
+
+- name: Copy answer file
+  copy: src=mgssetup.sh dest=/home/ansible/mgssetup.sh
+  when: rpm_check.stdout.find('is not installed') != -1 and ansible_os_family == 'RedHat'
+  tags: flexera
+
+- name: Execute install script to install Managesoft
+  script: install_managesoft.sh
+  when: rpm_check.stdout.find('is not installed') != -1 and ansible_os_family == 'RedHat'
+  notify: Copy configuration files
+  tags: flexera
+
+- name: Copy configuration files
+  with_items:
+    - config.ini
+    - download.xconf
+    - lastdownload.xconf
+    - lastupload.xconf
+    - upload.xconf
+  copy: src={{ item }} dest=/var/opt/managesoft/etc owner=root group=root mode=644 backup=yes
+  when: rpm_check.stdout.find('is not installed') != -1 and ansible_os_family == 'RedHat'
+  notify: restart flexserv
+  tags: flexera
+
+- name: Copy scheduler file
+  with_items:
+    - sched.nds
+  copy: src={{ item }} dest=/var/opt/managesoft/scheduler/schedule owner=root group=root mode=644 backup=yes
+  when: rpm_check.stdout.find('is not installed') != -1 and ansible_os_family == 'RedHat'
+  notify: restart flexserv
+  tags: flexera
+
+- name: Remove rpm install file
+  file: path=/home/ansible/managesoft-9.0.0-1.x86_64.rpm state=absent
+  tags: flexera
+
+- name: Remove answer file
+  file: path=/home/ansible/mgssetup.sh state=absent
+  tags: flexera
